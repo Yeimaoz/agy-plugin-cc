@@ -19,3 +19,12 @@ test("plugin manifest has name and semver version", () => {
   assert.equal(p.name, "agy");
   assert.match(p.version, /^\d+\.\d+\.\d+$/);
 });
+
+test("package.json test script works on Node 20 (no glob argument) and engines match CI", () => {
+  const pkg = readJson("package.json");
+  assert.equal(pkg.scripts.test, "node --test");
+  assert.equal(pkg.engines.node, ">=20");
+  const ci = readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+  assert.match(ci, /node-version: \$\{\{ matrix.node \}\}/);
+  assert.match(ci, /node: \[20, 22\]/);
+});

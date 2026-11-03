@@ -36,7 +36,7 @@ export function resolveAgyBinary(env = process.env) {
     const explicit = env.AGY_BIN.trim();
     return existsSync(explicit) ? explicit : null;
   }
-  const names = process.platform === "win32" ? ["agy.exe", "agy.cmd", "agy"] : ["agy"];
+  const names = process.platform === "win32" ? ["agy.exe", "agy"] : ["agy"];
   const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
   for (const dir of dirs) {
     for (const name of names) {

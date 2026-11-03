@@ -5,6 +5,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
+if (!args.includes("-p") && args[0] !== "models" && args[0] !== "--version") {
+  let stdin = "";
+  process.stdin.setEncoding("utf8");
+  for await (const chunk of process.stdin) stdin += chunk;
+  args.push(`STDIN:${stdin}`);
+}
 if (process.env.FAKE_AGY_ARGS_FILE) writeFileSync(process.env.FAKE_AGY_ARGS_FILE, JSON.stringify(args));
 
 if (args[0] === "models") {

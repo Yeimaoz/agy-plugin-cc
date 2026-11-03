@@ -73,3 +73,11 @@ test("reconcileJobs marks SUCCESS-with-empty-response as failed (headless permis
   assert.match(state.jobs[job.id].summary, /no output/);
   assert.match(state.jobs[job.id].summary, /permission/);
 });
+
+test("reconcileJobs keeps a live foreground job (own pid) running when the log has no result yet", () => {
+  const { cwd, env } = setup();
+  const job = createJob(cwd, { kind: "review", pid: process.pid }, env);
+  writeFileSync(job.logPath, "");
+  const state = reconcileJobs(cwd, {}, env);
+  assert.equal(state.jobs[job.id].status, "running");
+});

@@ -9,13 +9,17 @@ Run an agy review. This command is review-only: do not fix anything, do not sugg
 
 Raw arguments: `$ARGUMENTS`
 
-Run exactly one Bash call:
+Run exactly one Bash call. If the arguments contain `--focus <text>`, move the text into a single-quoted heredoc with `--focus-stdin` so the shell cannot expand it:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" review $ARGUMENTS
+node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" review <flags and paths without --focus> --focus-stdin <<'AGY_FOCUS'
+<focus text verbatim>
+AGY_FOCUS
 ```
 
-- Pass the user's arguments through unchanged. Do not add flags they did not ask for.
+Without `--focus`, it is simply `node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" review <arguments>`.
+
+- Pass the user's other arguments through unchanged. Do not add flags they did not ask for.
 - Default model is Gemini 4 Argon at high effort; the user can pick another with `--model opus|sonnet|flash|argon|gpt-oss`.
 - If the review is likely to take more than a minute (many files), run the Bash call with `run_in_background: true` and tell the user it is running.
 - Return the command output to the user verbatim. Do not summarize or soften findings.

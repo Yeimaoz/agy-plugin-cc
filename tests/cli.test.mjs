@@ -19,8 +19,8 @@ function repo() {
   return dir;
 }
 
-function run(args, { cwd, env = {} } = {}) {
-  const r = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8", env: { ...process.env, AGY_BIN: FAKE, ...env } });
+function run(args, { cwd, env = {}, input } = {}) {
+  const r = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8", input, env: { ...process.env, AGY_BIN: FAKE, ...env } });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
 
@@ -157,4 +157,50 @@ test("review reports a headless permission denial instead of an empty unstructur
   const j = JSON.parse(r.out);
   assert.match(j.error, /no output/i);
   assert.match(j.detail, /permission/i);
+});
+
+test("task --prompt-stdin reads the prompt from stdin and forwards it to agy over stdin", () => {
+  const data = tmp("agy-data-");
+  const argsFile = path.join(data, "args.json");
+  const prompt = "fix `parseArgs()` when $HOME is unset\nsecond line";
+  const r = run(["task", "--wait", "--prompt-stdin"], { cwd: repo(), env: { CLAUDE_PLUGIN_DATA: data, FAKE_AGY_ARGS_FILE: argsFile }, input: prompt });
+  assert.equal(r.code, 0, r.err);
+  const seen = JSON.parse(readFileSync(argsFile, "utf8"));
+  assert.equal(seen.includes("-p"), false);
+  assert.equal(seen[seen.length - 1], `STDIN:${prompt}`);
+});
+
+test("review sends the whole prompt over stdin, never argv", () => {
+  const data = tmp("agy-data-");
+  const cwd = repo();
+  writeFileSync(path.join(cwd, "a.txt"), "two\n");
+  const argsFile = path.join(data, "args.json");
+  run(["review", "--json"], { cwd, env: { CLAUDE_PLUGIN_DATA: data, FAKE_AGY_ARGS_FILE: argsFile } });
+  const seen = JSON.parse(readFileSync(argsFile, "utf8"));
+  assert.equal(seen.includes("-p"), false);
+  assert.ok(seen[seen.length - 1].startsWith("STDIN:"));
+  assert.ok(seen[seen.length - 1].includes("-one"));
+});
+
+test("review --focus-stdin takes the focus text from stdin", () => {
+  const data = tmp("agy-data-");
+  const cwd = repo();
+  writeFileSync(path.join(cwd, "a.txt"), "two\n");
+  const argsFile = path.join(data, "args.json");
+  run(["review", "--json", "--focus-stdin"], { cwd, env: { CLAUDE_PLUGIN_DATA: data, FAKE_AGY_ARGS_FILE: argsFile }, input: "watch $PATH handling" });
+  const seen = JSON.parse(readFileSync(argsFile, "utf8"));
+  assert.ok(seen[seen.length - 1].includes("User focus: watch $PATH handling"));
+});
+
+test("a foreground review in progress shows as running, not failed", async () => {
+  const data = tmp("agy-data-");
+  const cwd = repo();
+  writeFileSync(path.join(cwd, "a.txt"), "two\n");
+  const { spawn } = await import("node:child_process");
+  const child = spawn(process.execPath, [CLI, "review", "--json"], { cwd, env: { ...process.env, AGY_BIN: FAKE, CLAUDE_PLUGIN_DATA: data, FAKE_AGY_DELAY_MS: "4000" }, stdio: "ignore" });
+  await new Promise((r) => setTimeout(r, 1500));
+  const s = JSON.parse(run(["status", "--json"], { cwd, env: { CLAUDE_PLUGIN_DATA: data } }).out);
+  assert.equal(s.jobs.length, 1);
+  assert.equal(s.jobs[0].status, "running");
+  await new Promise((r) => child.on("close", r));
 });

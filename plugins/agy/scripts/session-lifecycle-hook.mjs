@@ -15,7 +15,8 @@ async function readStdin() {
 function exportEnv(name, value) {
   const file = process.env.CLAUDE_ENV_FILE;
   if (!file || !value) return;
-  try { appendFileSync(file, `${name}=${value}\n`, "utf8"); } catch { /* best effort */ }
+  const quoted = `'${String(value).replace(/'/g, "'\\''")}'`;
+  try { appendFileSync(file, `export ${name}=${quoted}\n`, "utf8"); } catch { /* best effort */ }
 }
 
 async function main() {

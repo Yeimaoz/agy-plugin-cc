@@ -5,6 +5,6 @@
   "type": "module",
   "description": "Use Google Antigravity CLI (agy) from Claude Code: multi-model review, rescue and task delegation.",
   "license": "MIT",
-  "engines": { "node": ">=18.18" },
-  "scripts": { "test": "node --test \"tests/**/*.test.mjs\"" }
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test" }
 }

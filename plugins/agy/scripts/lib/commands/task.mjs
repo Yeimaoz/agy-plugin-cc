@@ -4,6 +4,7 @@ import { summarizeStream } from "../stream.mjs";
 import { createJob, defaultIsAlive, findResumableJob, reconcileJobs, updateJob } from "../jobs.mjs";
 import { loadState } from "../state.mjs";
 import { emit, pickModel, requireBinary, UsageError } from "../context.mjs";
+import { readStdinText } from "../stdin.mjs";
 
 const POLL_MS = 1000;
 
@@ -32,15 +33,22 @@ export async function startTask(ctx, { prompt, model, effort, write = false, res
     }
   }
   const job = createJob(ctx.cwd, { kind, model: picked.model, effort: picked.effort, mode, prompt, conversationId, claudeSessionId: ctx.sessionId, extra: { crossSession, ...extra } }, ctx.env);
-  const args = buildAgyArgs({ model: picked.model, effort: picked.effort, mode, conversationId, addDirs, prompt });
-  const { pid } = spawnAgy({ bin: ctx.bin, args, cwd: ctx.cwd, env: ctx.env, logPath: job.logPath, detached: true });
+  const args = buildAgyArgs({ model: picked.model, effort: picked.effort, mode, conversationId, addDirs, prompt, viaStdin: true });
+  const { ready } = spawnAgy({ bin: ctx.bin, args, cwd: ctx.cwd, env: ctx.env, logPath: job.logPath, input: prompt, detached: true });
+  let pid;
+  try {
+    pid = await ready;
+  } catch (err) {
+    updateJob(ctx.cwd, job.id, { status: "failed", phase: "failed", summary: `could not start agy: ${err.message}`, finishedAt: new Date().toISOString() }, ctx.env);
+    throw new UsageError(`could not start agy (${err.code || err.message}). Check AGY_BIN / PATH and run /agy:setup.`);
+  }
   updateJob(ctx.cwd, job.id, { pid, phase: "starting" }, ctx.env);
   return { ...job, pid, crossSession };
 }
 
 export async function runTask(ctx, { flags, positional }) {
-  const prompt = positional.join(" ").trim();
-  if (!prompt) throw new UsageError("task needs a prompt, e.g. task --background \"explain the failing test\"");
+  const prompt = flags["prompt-stdin"] ? (await readStdinText()).trim() : positional.join(" ").trim();
+  if (!prompt) throw new UsageError("task needs a prompt: pass it as the last argument or pipe it with --prompt-stdin");
   if (flags.resume && flags.fresh) throw new UsageError("--resume and --fresh are mutually exclusive");
   const job = await startTask(ctx, {
     prompt,
@@ -58,6 +66,7 @@ export async function runTask(ctx, { flags, positional }) {
     return 0;
   }
 
+  if (!ctx.json) process.stdout.write(`Started job ${job.id} (${job.model}/${job.effort}, mode ${job.mode}); waiting...${note}\n`);
   const finished = await waitForJob(ctx, job.id);
   const text = (() => { try { return readFileSync(finished.resultPath, "utf8"); } catch { return ""; } })();
   const summary = summarizeStream((() => { try { return readFileSync(finished.logPath, "utf8"); } catch { return ""; } })());

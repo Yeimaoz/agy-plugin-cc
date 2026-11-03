@@ -13,7 +13,7 @@ Entry point: `node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" <command> [
 |---|---|---|
 | `setup [--enable-review-gate\|--disable-review-gate]` | binary, sign-in, model catalog, gate flag | `agy --version`, `agy models` |
 | `review [--adversarial] [--base ref] [--staged] [--focus t] [paths]` | structured findings for a diff | `--mode plan` + findings JSON schema |
-| `task [--background\|--wait] [--write] [--resume\|--fresh] [--add-dir d] <prompt>` | delegate work | `--mode plan`, or `--mode accept-edits` with `--write` |
+| `task [--background\|--wait] [--write] [--resume\|--fresh] [--add-dir d] --prompt-stdin` | delegate work (prompt on stdin) | `--mode plan`, or `--mode accept-edits` with `--write` |
 | `status [id] [--wait] [--all]`, `result <id>`, `cancel <id>` | job management | none |
 | `transfer [--dry-run] [instruction]` | hand over the Claude transcript | background task |
 | `gate` | Stop-hook review gate (stdin JSON) | Flash low + decision schema |
@@ -37,7 +37,7 @@ Run `agy models` to see the live catalog.
 ## Hard rules
 
 - Never pass `--dangerously-skip-permissions`. Headless writes work with `--mode accept-edits`; read-only work uses `--mode plan`.
-- The prompt must be the last argument and must be quoted as one argument. All other flags come before it.
+- Prompts and focus text go over stdin, never argv: use `--prompt-stdin` / `--focus-stdin` with a single-quoted heredoc (`<<'AGY_PROMPT'`). This keeps `$`, backticks and quotes intact and avoids the OS command-line length limits (Windows 32K chars). The companion itself also feeds agy over stdin for the same reason.
 - Background jobs are detached processes; they survive the Bash call. Track them with `status`, fetch with `result`, stop with `cancel`.
 - `--resume` reuses the most recent task conversation from this Claude session (falls back to this workspace, flagged `[cross-session]`).
 - If the companion prints `agy CLI not found` or a sign-in error, stop and tell the user to run `/agy:setup`.

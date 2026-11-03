@@ -1,11 +1,15 @@
 // Per-workspace state file: config, session info and job records.
+// updateState serializes read-modify-write across processes with a lock directory.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 export const STATE_FILE_NAME = "state.json";
 export const JOBS_DIR_NAME = "jobs";
+const LOCK_DIR_NAME = "state.lock";
+const LOCK_STALE_MS = 10_000;
+const LOCK_WAIT_MS = 5_000;
 
 function defaultState() {
   return { version: 1, config: { stopReviewGate: false }, session: { id: null, consecutiveBlocks: 0 }, jobs: {} };
@@ -56,14 +60,43 @@ export function loadState(cwd, env = process.env) {
 export function saveState(cwd, state, env = process.env) {
   ensureStateDir(cwd, env);
   const file = resolveStateFile(cwd, env);
-  const tmp = `${file}.${process.pid}.tmp`;
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
   writeFileSync(tmp, JSON.stringify(state, null, 2), "utf8");
   renameSync(tmp, file);
   return state;
 }
 
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// mkdir is atomic on every platform; the directory is the lock. Stale locks (crashed holder) expire.
+function acquireLock(dir) {
+  const lock = path.join(dir, LOCK_DIR_NAME);
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      return () => { try { rmdirSync(lock); } catch { /* already released */ } };
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) { rmdirSync(lock); continue; }
+      } catch { continue; }
+      if (Date.now() > deadline) throw new Error(`state lock busy for ${LOCK_WAIT_MS}ms: ${lock}`);
+      sleepSync(5 + Math.floor(Math.random() * 20));
+    }
+  }
+}
+
 export function updateState(cwd, mutate, env = process.env) {
-  const state = loadState(cwd, env);
-  const result = mutate(state);
-  return saveState(cwd, result && typeof result === "object" ? result : state, env);
+  const dir = ensureStateDir(cwd, env);
+  const release = acquireLock(dir);
+  try {
+    const state = loadState(cwd, env);
+    const result = mutate(state);
+    return saveState(cwd, result && typeof result === "object" ? result : state, env);
+  } finally {
+    release();
+  }
 }

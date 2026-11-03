@@ -12,6 +12,7 @@ function repo() {
   git("init", "-q");
   git("config", "user.email", "t@t");
   git("config", "user.name", "t");
+  git("config", "core.quotepath", "true");
   writeFileSync(path.join(dir, "a.txt"), "one\n");
   git("add", "a.txt");
   git("commit", "-q", "-m", "init");
@@ -53,4 +54,20 @@ test("collectDiff with --base uses that ref and labels it", () => {
   const d = collectDiff(dir, { base: "HEAD~1" });
   assert.ok(d.text.includes("+two"));
   assert.equal(d.label, "HEAD~1..working tree");
+});
+
+test("collectDiff includes untracked files with non-ASCII names", () => {
+  const { dir } = repo();
+  writeFileSync(path.join(dir, "中文.txt"), "你好\n");
+  const d = collectDiff(dir, {});
+  assert.deepEqual(d.files, ["中文.txt"]);
+  assert.ok(d.text.includes("+你好"));
+});
+
+test("collectDiff reports untracked files with repo-relative paths", () => {
+  const { dir } = repo();
+  writeFileSync(path.join(dir, "new.txt"), "fresh\n");
+  const d = collectDiff(dir, {});
+  assert.ok(d.text.includes("+++ b/new.txt"), d.text.slice(0, 300));
+  assert.equal(d.text.includes(dir), false);
 });

@@ -36,6 +36,15 @@ test("rescue agent is registered with Bash only and the runtime skill", () => {
   assert.match(fm, /^tools: Bash$/m);
   assert.match(fm, /agy-cli-runtime/);
   assert.match(body, /"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/agy-companion\.mjs" task/);
+  assert.match(body, /--prompt-stdin <<'AGY_PROMPT'/, "task text must go through a single-quoted heredoc");
+});
+
+test("review commands route focus text through --focus-stdin heredocs, never bare $ARGUMENTS in bash", () => {
+  for (const name of ["review", "adversarial-review"]) {
+    const text = readFileSync(path.join(root, "commands", `${name}.md`), "utf8");
+    assert.match(text, /--focus-stdin <<'AGY_FOCUS'/, name);
+    assert.doesNotMatch(text, /agy-companion\.mjs" review[^\n]*\$ARGUMENTS/, `${name} must not splice $ARGUMENTS into bash`);
+  }
 });
 
 test("skills exist and document the never-skip-permissions rule and defaults", () => {

@@ -57,6 +57,7 @@ Pick with `--model <alias|id>` and `--effort <low|medium|high|xhigh|max>`. Unsup
 ## Safety model
 
 - The plugin never passes `--dangerously-skip-permissions`. Reviews and plain rescues run in agy `--mode plan` (read-only); `--write` switches to `--mode accept-edits`, which is enough for headless file edits.
+- Prompts, diffs and transcripts are sent to agy over stdin, never on the command line, so shell metacharacters stay intact and Windows' 32K command-line limit does not apply. Claude is told to pass task text through a single-quoted heredoc with `--prompt-stdin`.
 - A headless agy run that tries a shell command is auto-denied by agy and returns an empty response. The plugin detects that, marks the job `failed` with an explanation, and the review prompts tell the model not to run shell commands.
 - `/agy:transfer` shows a preview and asks before sending your conversation to a non-Claude model.
 - Background jobs are detached processes. Closing Claude Code does not kill them; `/agy:status` keeps tracking them.

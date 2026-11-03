@@ -10,8 +10,8 @@ import { runCancel, runResult, runStatus } from "./lib/commands/jobs.mjs";
 const USAGE = `agy-companion <command> [options]
 
   setup [--json] [--enable-review-gate|--disable-review-gate]
-  review [--adversarial] [--base <ref>] [--staged] [--model <m>] [--effort <e>] [--focus <text>] [--json] [paths...]
-  task [--background|--wait] [--write] [--resume|--fresh] [--model <m>] [--effort <e>] [--add-dir <d>]... [--json] <prompt...>
+  review [--adversarial] [--base <ref>] [--staged] [--model <m>] [--effort <e>] [--focus <text>|--focus-stdin] [--json] [paths...]
+  task [--background|--wait] [--write] [--resume|--fresh] [--model <m>] [--effort <e>] [--add-dir <d>]... [--json] (<prompt...> | --prompt-stdin)
   status [job-id] [--wait] [--timeout-ms <ms>] [--all] [--json]
   result <job-id> [--json]
   cancel <job-id> [--json]
@@ -51,6 +51,12 @@ async function main(argv) {
     return 2;
   }
   const ctx = makeContext({ flags });
+  if (command === "gate") {
+    const { readStdinText } = await import("./lib/stdin.mjs");
+    let input = {};
+    try { input = JSON.parse((await readStdinText()) || "{}"); } catch { input = {}; }
+    return handler(ctx, { flags, positional, input });
+  }
   return handler(ctx, { flags, positional });
 }
 

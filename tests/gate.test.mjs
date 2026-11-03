@@ -104,6 +104,6 @@ test("session lifecycle hook records the session id and writes env file", () => 
   assert.equal(r.status, 0, r.stderr);
   assert.equal(loadState(cwd, { CLAUDE_PLUGIN_DATA: data }).session.id, "sess-42");
   const envText = readFileSync(envFile, "utf8");
-  assert.match(envText, /AGY_CLAUDE_SESSION_ID=sess-42/);
-  assert.match(envText, /AGY_CLAUDE_TRANSCRIPT_PATH=/);
+  assert.match(envText, /^export AGY_CLAUDE_SESSION_ID='sess-42'$/m);
+  assert.match(envText, /^export AGY_CLAUDE_TRANSCRIPT_PATH='\/t\/x.jsonl'$/m);
 });

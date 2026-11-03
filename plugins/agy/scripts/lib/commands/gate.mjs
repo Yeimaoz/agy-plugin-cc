@@ -36,6 +36,12 @@ function parseDecision(text) {
 export async function runGate(ctx, { input }) {
   const state = loadState(ctx.cwd, ctx.env);
   if (!state.config.stopReviewGate) return 0;
+  // The block counter is per Claude session: a new session id resets it.
+  const sessionId = input.session_id || ctx.sessionId || null;
+  if (sessionId && state.session.id !== sessionId) {
+    updateState(ctx.cwd, (s) => { s.session.id = sessionId; s.session.consecutiveBlocks = 0; }, ctx.env);
+    state.session.consecutiveBlocks = 0;
+  }
   if (input.stop_hook_active) return 0;
   if (!ctx.bin) return degrade("agy binary not found");
 
@@ -67,9 +73,9 @@ export async function runGate(ctx, { input }) {
     DIFF: diff.text,
     DIFF_NOTE: diff.truncated ? "\nNote: the diff was truncated." : "",
   });
-  const job = createJob(ctx.cwd, { kind: "gate", model: picked.model, effort: picked.effort, mode: "plan", prompt: "stop review gate", claudeSessionId: input.session_id || ctx.sessionId }, ctx.env);
-  const args = buildAgyArgs({ model: picked.model, effort: picked.effort, mode: "plan", jsonSchemaPath: schemaPath("gate-decision"), prompt });
-  const res = await runAgy({ bin: ctx.bin, args, cwd: ctx.cwd, env: ctx.env, timeoutMs: GATE_TIMEOUT_MS });
+  const job = createJob(ctx.cwd, { kind: "gate", model: picked.model, effort: picked.effort, mode: "plan", pid: process.pid, prompt: "stop review gate", claudeSessionId: input.session_id || ctx.sessionId }, ctx.env);
+  const args = buildAgyArgs({ model: picked.model, effort: picked.effort, mode: "plan", jsonSchemaPath: schemaPath("gate-decision"), prompt, viaStdin: true });
+  const res = await runAgy({ bin: ctx.bin, args, cwd: ctx.cwd, env: ctx.env, input: prompt, timeoutMs: GATE_TIMEOUT_MS });
   appendFileSync(job.logPath, res.stdout + (res.stderr ? `\n[stderr]\n${res.stderr}` : ""), "utf8");
   const summary = summarizeStream(res.stdout);
   const finish = (status, text) => updateJob(ctx.cwd, job.id, { status, phase: status === "completed" ? "done" : "failed", summary: text, conversationId: summary.conversationId, finishedAt: new Date().toISOString() }, ctx.env);

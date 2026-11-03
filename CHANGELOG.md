@@ -11,3 +11,5 @@ Initial release. Feature parity with openai/codex-plugin-cc 1.0.6, driven by the
 - Optional stop-time review gate (off by default; fail-open; two-strike limit).
 - Headless permission denials (empty `SUCCESS` responses) are surfaced as failures instead of empty results.
 - Never uses `--dangerously-skip-permissions`; writes go through `--mode accept-edits`.
+- Prompts travel over stdin (`--prompt-stdin`, `--focus-stdin`); no argv length limits, no shell expansion.
+- Cross-process state lock, NUL-separated git listings (non-ASCII file names), foreground jobs tracked by pid, `export`-ed quoted env file lines.

@@ -1,9 +1,10 @@
-import { collectDiff } from "../git.mjs";
+import { collectDiff, GitError } from "../git.mjs";
+import { readStdinText } from "../stdin.mjs";
 import { renderPrompt, schemaPath } from "../prompts.mjs";
 import { buildAgyArgs, runAgy } from "../process.mjs";
 import { NO_OUTPUT_MESSAGE, summarizeStream } from "../stream.mjs";
 import { createJob, updateJob } from "../jobs.mjs";
-import { emit, pickModel, requireBinary } from "../context.mjs";
+import { emit, pickModel, requireBinary, UsageError } from "../context.mjs";
 import { renderReview } from "../render.mjs";
 import { appendFileSync } from "node:fs";
 
@@ -31,7 +32,13 @@ export async function runReview(ctx, { flags, positional }) {
   requireBinary(ctx);
   const adversarial = Boolean(flags.adversarial);
   const kind = adversarial ? "adversarial-review" : "review";
-  const diff = collectDiff(ctx.cwd, { base: flags.base, staged: Boolean(flags.staged), paths: positional });
+  let diff;
+  try {
+    diff = collectDiff(ctx.cwd, { base: flags.base, staged: Boolean(flags.staged), paths: positional });
+  } catch (err) {
+    if (err instanceof GitError) throw new UsageError(err.message);
+    throw err;
+  }
   if (!diff.text.trim()) {
     const result = { kind, model: flags.model || "default", effort: flags.effort || "default", target: diff.label, files: [], truncated: false, verdict: "approve", note: "no-diff", summary: "No changes to review.", findings: [] };
     emit(ctx, result, renderReview(result));
@@ -42,15 +49,16 @@ export async function runReview(ctx, { flags, positional }) {
 
   const prompt = renderPrompt(adversarial ? "adversarial-review" : "review", {
     TARGET_LABEL: diff.label,
-    USER_FOCUS: flags.focus ? String(flags.focus) : "none",
+    USER_FOCUS: flags["focus-stdin"] ? (await readStdinText()).trim() || "none" : flags.focus ? String(flags.focus) : "none",
     DIFF: diff.text,
     DIFF_NOTE: diff.truncated ? "\nNote: the diff was truncated to fit; review what is shown and say so in the summary." : "",
   });
-  const job = createJob(ctx.cwd, { kind, model, effort, mode: "plan", prompt: `${kind} of ${diff.label}`, claudeSessionId: ctx.sessionId }, ctx.env);
+  const job = createJob(ctx.cwd, { kind, model, effort, mode: "plan", pid: process.pid, prompt: `${kind} of ${diff.label}`, claudeSessionId: ctx.sessionId }, ctx.env);
 
   const attempt = async (extra) => {
-    const args = buildAgyArgs({ model, effort, mode: "plan", jsonSchemaPath: schemaPath("review-findings"), prompt: prompt + extra });
-    const res = await runAgy({ bin: ctx.bin, args, cwd: ctx.cwd, env: ctx.env, timeoutMs: REVIEW_TIMEOUT_MS });
+    const fullPrompt = prompt + extra;
+    const args = buildAgyArgs({ model, effort, mode: "plan", jsonSchemaPath: schemaPath("review-findings"), prompt: fullPrompt, viaStdin: true });
+    const res = await runAgy({ bin: ctx.bin, args, cwd: ctx.cwd, env: ctx.env, input: fullPrompt, timeoutMs: REVIEW_TIMEOUT_MS });
     appendFileSync(job.logPath, res.stdout + (res.stderr ? `\n[stderr]\n${res.stderr}` : ""), "utf8");
     return { res, summary: summarizeStream(res.stdout) };
   };
@@ -70,8 +78,9 @@ export async function runReview(ctx, { flags, positional }) {
   }
   if (summary.status !== "SUCCESS") {
     updateJob(ctx.cwd, job.id, { status: "failed", phase: "failed", summary: `agy exit ${res.code}`, finishedAt: new Date().toISOString() }, ctx.env);
+    const why = res.timedOut ? `agy timed out after ${Math.round(REVIEW_TIMEOUT_MS / 1000)}s` : `agy exit ${res.code}`;
     const detail = (res.stderr || summary.response || "").trim().slice(0, 500);
-    emit(ctx, { ...base, verdict: "needs-attention", error: `agy failed (exit ${res.code})`, detail, jobId: job.id }, `Review failed: agy exit ${res.code}\n${detail}`);
+    emit(ctx, { ...base, verdict: "needs-attention", error: why, detail, jobId: job.id }, `Review failed: ${why}\n${detail}`);
     return 1;
   }
 

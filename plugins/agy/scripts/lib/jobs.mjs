@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { ensureStateDir, loadState, resolveJobsDir, updateState } from "./state.mjs";
-import { summarizeStream } from "./stream.mjs";
+import { NO_OUTPUT_MESSAGE, summarizeStream } from "./stream.mjs";
 
 export function nowIso() {
   return new Date().toISOString();
@@ -77,14 +77,14 @@ export function readJobLog(job) {
 }
 
 function finishFromSummary(job, summary) {
-  const status = summary.status === "SUCCESS" ? "completed" : "failed";
-  const text = summary.response || "";
+  const status = summary.status === "SUCCESS" && !summary.noOutput ? "completed" : "failed";
+  const text = summary.noOutput ? NO_OUTPUT_MESSAGE : (summary.response || "");
   try { writeFileSync(job.resultPath, text, "utf8"); } catch { /* best effort */ }
   return {
     status,
     phase: summary.phase,
     conversationId: summary.conversationId || job.conversationId,
-    summary: (text.trim().split(/\r?\n/)[0] || summary.status || "").slice(0, 200),
+    summary: (summary.noOutput ? NO_OUTPUT_MESSAGE : (text.trim().split(/\r?\n/)[0] || summary.status || "")).slice(0, 200),
     usage: summary.usage,
     durationSeconds: summary.durationSeconds,
     finishedAt: nowIso(),

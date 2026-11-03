@@ -59,3 +59,17 @@ test("findResumableJob prefers same session and flags cross-session fallback", (
   assert.equal(r2.crossSession, false);
   assert.equal(findResumableJob({ jobs: {} }, { kind: "task" }), null);
 });
+
+test("reconcileJobs marks SUCCESS-with-empty-response as failed (headless permission denial)", () => {
+  const { cwd, env } = setup();
+  const job = createJob(cwd, { kind: "task", pid: 1 }, env);
+  const emptyResult = fixture.split("\n").map((l) => {
+    if (!l.includes('"event":"result"')) return l;
+    const e = JSON.parse(l); e.result.response = ""; return JSON.stringify(e);
+  }).join("\n") + '\n[stderr]\njetski: no output produced — a tool required the "command" permission that headless mode cannot prompt for, so it was auto-denied.\n';
+  writeFileSync(job.logPath, emptyResult);
+  const state = reconcileJobs(cwd, { isAlive: () => true }, env);
+  assert.equal(state.jobs[job.id].status, "failed");
+  assert.match(state.jobs[job.id].summary, /no output/);
+  assert.match(state.jobs[job.id].summary, /permission/);
+});

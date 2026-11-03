@@ -14,6 +14,8 @@ export function parseStreamLine(line) {
   return { event: "unknown", payload: obj };
 }
 
+export const NO_OUTPUT_MESSAGE = "agy produced no output: a tool needed a permission that headless mode cannot prompt for and was auto-denied (likely a shell command). Rephrase the task to avoid shell commands, or run it with --write for file edits.";
+
 export function summarizeStream(text) {
   const summary = {
     conversationId: null,
@@ -25,7 +27,10 @@ export function summarizeStream(text) {
     usage: null,
     durationSeconds: null,
     numTurns: null,
+    noOutput: false,
+    denied: false,
   };
+  if (/no output produced|auto-denied|cannot prompt for/i.test(String(text))) summary.denied = true;
   for (const line of String(text).split(/\r?\n/)) {
     const { event, payload } = parseStreamLine(line);
     if (event === "init") {
@@ -50,7 +55,8 @@ export function summarizeStream(text) {
       summary.usage = r.usage || null;
       summary.durationSeconds = r.duration_seconds ?? null;
       summary.numTurns = r.num_turns ?? null;
-      summary.phase = summary.status === "SUCCESS" ? "done" : "failed";
+      summary.noOutput = summary.status === "SUCCESS" && summary.response.trim() === "";
+      summary.phase = summary.status === "SUCCESS" && !summary.noOutput ? "done" : "failed";
     }
   }
   return summary;

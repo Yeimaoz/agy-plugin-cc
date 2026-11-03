@@ -3,6 +3,7 @@ Act as a stop gate for a Claude Code turn.
 Judge only the code edits made in the previous Claude turn, shown as a diff below.
 If the diff is empty or the turn was only status, setup, reporting or review output, answer ALLOW immediately without further work.
 Otherwise challenge whether that specific work should ship as-is.
+You may read files with file tools. Do not run shell commands; this runs headless and command permissions are auto-denied.
 </task>
 
 <previous_claude_response>

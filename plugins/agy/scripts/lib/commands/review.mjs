@@ -1,7 +1,7 @@
 import { collectDiff } from "../git.mjs";
 import { renderPrompt, schemaPath } from "../prompts.mjs";
 import { buildAgyArgs, runAgy } from "../process.mjs";
-import { summarizeStream } from "../stream.mjs";
+import { NO_OUTPUT_MESSAGE, summarizeStream } from "../stream.mjs";
 import { createJob, updateJob } from "../jobs.mjs";
 import { emit, pickModel, requireBinary } from "../context.mjs";
 import { renderReview } from "../render.mjs";
@@ -56,12 +56,18 @@ export async function runReview(ctx, { flags, positional }) {
   };
 
   let { res, summary } = await attempt("");
-  let parsed = summary.status === "SUCCESS" ? parseFindings(summary.response) : null;
-  if (!parsed && summary.status === "SUCCESS") {
+  let parsed = summary.status === "SUCCESS" && !summary.noOutput ? parseFindings(summary.response) : null;
+  if (!parsed && summary.status === "SUCCESS" && !summary.noOutput) {
     ({ res, summary } = await attempt("\n\nReturn only the JSON object. No prose, no code fences."));
     parsed = parseFindings(summary.response);
   }
 
+  if (summary.noOutput) {
+    updateJob(ctx.cwd, job.id, { status: "failed", phase: "failed", summary: NO_OUTPUT_MESSAGE, finishedAt: new Date().toISOString() }, ctx.env);
+    const detail = NO_OUTPUT_MESSAGE + (res.stderr ? `\n${res.stderr.trim().slice(0, 300)}` : "");
+    emit(ctx, { ...base, verdict: "needs-attention", error: "agy produced no output", detail, jobId: job.id }, `Review failed: ${detail}`);
+    return 1;
+  }
   if (summary.status !== "SUCCESS") {
     updateJob(ctx.cwd, job.id, { status: "failed", phase: "failed", summary: `agy exit ${res.code}`, finishedAt: new Date().toISOString() }, ctx.env);
     const detail = (res.stderr || summary.response || "").trim().slice(0, 500);

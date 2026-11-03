@@ -26,3 +26,10 @@ test("schemas are valid JSON with required arrays", () => {
   }
   assert.ok(promptPath("review").endsWith(path.join("prompts", "review.md")));
 });
+
+test("review prompts forbid shell commands so headless plan mode cannot be auto-denied", () => {
+  for (const name of ["review", "adversarial-review", "stop-review-gate"]) {
+    const out = renderPrompt(name, { ...vars });
+    assert.match(out, /do not run shell commands/i, name);
+  }
+});

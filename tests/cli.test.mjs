@@ -147,3 +147,14 @@ test("cancel on a finished job reports not running; cancel on running job cancel
   const s = JSON.parse(run(["status", "--json", "--all"], { cwd, env: { CLAUDE_PLUGIN_DATA: data } }).out);
   assert.equal(s.jobs.find((j) => j.id === slow.jobId).status, "cancelled");
 });
+
+test("review reports a headless permission denial instead of an empty unstructured result", () => {
+  const data = tmp("agy-data-");
+  const cwd = repo();
+  writeFileSync(path.join(cwd, "a.txt"), "two\n");
+  const r = run(["review", "--json"], { cwd, env: { CLAUDE_PLUGIN_DATA: data, FAKE_AGY_RESPONSE: "" } });
+  assert.equal(r.code, 1);
+  const j = JSON.parse(r.out);
+  assert.match(j.error, /no output/i);
+  assert.match(j.detail, /permission/i);
+});

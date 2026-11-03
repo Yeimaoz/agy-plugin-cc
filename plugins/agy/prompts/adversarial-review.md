@@ -7,7 +7,7 @@ Your job is to break confidence in the change, not to validate it.
 Review the change below as if you were trying to find the strongest reasons it must not ship yet.
 Target: {{TARGET_LABEL}}
 User focus: {{USER_FOCUS}}
-You may read files in the workspace to understand context; do not modify anything.
+You may read files in the workspace with file tools to understand context. Do not run shell commands and do not modify anything; this runs headless and command permissions are auto-denied.
 </task>
 
 <stance>

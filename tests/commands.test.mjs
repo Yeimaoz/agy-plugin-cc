@@ -9,7 +9,7 @@ const USER_ONLY = ["review", "adversarial-review", "status", "result", "cancel",
 const MODEL_OK = ["setup", "rescue"];
 
 function frontmatter(file) {
-  const text = readFileSync(file, "utf8");
+  const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
   const m = text.match(/^---\n([\s\S]*?)\n---/);
   assert.ok(m, `${file} has frontmatter`);
   return { fm: m[1], body: text.slice(m[0].length) };
@@ -41,19 +41,19 @@ test("rescue agent is registered with Bash only and the runtime skill", () => {
 
 test("review commands route focus text through --focus-stdin heredocs, never bare $ARGUMENTS in bash", () => {
   for (const name of ["review", "adversarial-review"]) {
-    const text = readFileSync(path.join(root, "commands", `${name}.md`), "utf8");
+    const text = readFileSync(path.join(root, "commands", `${name}.md`), "utf8").replace(/\r\n/g, "\n");
     assert.match(text, /--focus-stdin <<'AGY_FOCUS'/, name);
     assert.doesNotMatch(text, /agy-companion\.mjs" review[^\n]*\$ARGUMENTS/, `${name} must not splice $ARGUMENTS into bash`);
   }
 });
 
 test("skills exist and document the never-skip-permissions rule and defaults", () => {
-  const runtime = readFileSync(path.join(root, "skills", "agy-cli-runtime", "SKILL.md"), "utf8");
+  const runtime = readFileSync(path.join(root, "skills", "agy-cli-runtime", "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
   assert.match(runtime, /^name: agy-cli-runtime$/m);
   assert.match(runtime, /never.*dangerously-skip-permissions/i);
   assert.match(runtime, /gemini-4-argon/);
   assert.match(runtime, /accept-edits/);
-  const results = readFileSync(path.join(root, "skills", "agy-result-handling", "SKILL.md"), "utf8");
+  const results = readFileSync(path.join(root, "skills", "agy-result-handling", "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
   assert.match(results, /^name: agy-result-handling$/m);
 });
 

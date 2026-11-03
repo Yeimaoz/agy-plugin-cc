@@ -16,8 +16,11 @@ function defaultState() {
 }
 
 export function resolveStateDir(cwd, env = process.env) {
-  let real = cwd;
-  try { real = realpathSync(cwd); } catch { /* keep as given */ }
+  // realpathSync.native expands Windows 8.3 short names (RUNNER~1) so git's long form and the
+  // caller's form hash identically; the drive letter is case-folded for the same reason.
+  let real = path.resolve(cwd);
+  try { real = realpathSync.native(cwd); } catch { /* keep as given */ }
+  if (process.platform === "win32") real = real.toLowerCase();
   const slug = (path.basename(real) || "workspace").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "workspace";
   const hash = createHash("sha1").update(real).digest("hex").slice(0, 8);
   const pluginData = env.CLAUDE_PLUGIN_DATA && env.CLAUDE_PLUGIN_DATA.trim();

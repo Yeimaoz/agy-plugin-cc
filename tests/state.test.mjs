@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import { resolveStateDir, loadState, saveState, updateState } from "../plugins/agy/scripts/lib/state.mjs";
@@ -40,7 +40,7 @@ test("concurrent updateState calls from separate processes do not lose updates",
   const env = { CLAUDE_PLUGIN_DATA: tmp() };
   const cwd = tmp();
   const lib = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../plugins/agy/scripts/lib/state.mjs");
-  const script = `import { updateState } from ${JSON.stringify(lib)}; for (let i = 0; i < 5; i++) updateState(${JSON.stringify(cwd)}, (s) => { s.counter = (s.counter || 0) + 1; }, ${JSON.stringify(env)});`;
+  const script = `import { updateState } from ${JSON.stringify(pathToFileURL(lib).href)}; for (let i = 0; i < 5; i++) updateState(${JSON.stringify(cwd)}, (s) => { s.counter = (s.counter || 0) + 1; }, ${JSON.stringify(env)});`;
   const children = Array.from({ length: 8 }, () => spawn(process.execPath, ["--input-type=module", "-e", script], { stdio: "inherit" }));
   await Promise.all(children.map((c) => new Promise((res) => c.on("close", res))));
   assert.equal(loadState(cwd, env).counter, 40);

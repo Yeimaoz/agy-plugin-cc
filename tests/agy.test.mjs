@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   parseModelsOutput,
   resolveModel,
@@ -46,8 +49,12 @@ test("resolveModel rejects unknown model", () => {
   assert.throws(() => resolveModel({ model: "nope", purpose: "task" }, cat), /unknown model/);
 });
 
-test("resolveAgyBinary honours AGY_BIN first", () => {
-  assert.equal(resolveAgyBinary({ AGY_BIN: "/x/agy", PATH: "" }), "/x/agy");
+test("resolveAgyBinary honours AGY_BIN when it exists, else reports not found", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "agy-bin-"));
+  const bin = path.join(dir, "agy");
+  writeFileSync(bin, "");
+  assert.equal(resolveAgyBinary({ AGY_BIN: bin, PATH: "" }), bin);
+  assert.equal(resolveAgyBinary({ AGY_BIN: path.join(dir, "missing"), PATH: "" }), null);
 });
 
 test("compareVersions is numeric per segment", () => {

@@ -55,7 +55,7 @@ export async function runCancel(ctx, { positional }) {
     emit(ctx, { job, cancelled: false }, `Job ${id} is not running (status ${job.status}).`);
     return 0;
   }
-  await killJob(job);
+  await killJob(job, ctx.env);
   const updated = updateJob(ctx.cwd, id, { status: "cancelled", phase: "cancelled", finishedAt: new Date().toISOString(), summary: "cancelled by user" }, ctx.env);
   emit(ctx, { job: updated, cancelled: true }, `Job ${id} cancelled.`);
   return 0;

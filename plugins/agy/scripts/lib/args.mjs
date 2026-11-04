@@ -1,7 +1,7 @@
 // Tiny argv parser: --flag, --key value, repeatable keys, positionals.
 
 const REPEATABLE = new Set(["add-dir"]);
-const VALUED = new Set(["model", "effort", "base", "focus", "source", "timeout-ms", "add-dir", "instruction"]);
+const VALUED = new Set(["model", "effort", "base", "focus", "source", "timeout-ms", "lines", "add-dir", "instruction"]);
 
 export function parseArgs(argv, { valued = VALUED, repeatable = REPEATABLE } = {}) {
   const flags = {};

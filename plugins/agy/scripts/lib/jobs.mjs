@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { ensureStateDir, loadState, resolveJobsDir, updateState } from "./state.mjs";
 import { NO_OUTPUT_MESSAGE, summarizeStream } from "./stream.mjs";
+import * as tmux from "./tmux.mjs";
 
 export function nowIso() {
   return new Date().toISOString();
@@ -72,6 +73,11 @@ export function defaultIsAlive(pid) {
   }
 }
 
+// Session jobs run inside tmux and have no pid: liveness is "does the tmux session still exist".
+export function defaultIsSessionAlive(name, env = process.env) {
+  return tmux.hasSession(name, { env });
+}
+
 export function readJobLog(job) {
   try { return readFileSync(job.logPath, "utf8"); } catch { return ""; }
 }
@@ -91,10 +97,16 @@ function finishFromSummary(job, summary) {
   };
 }
 
-export function reconcileJobs(cwd, { isAlive = defaultIsAlive } = {}, env = process.env) {
+export function reconcileJobs(cwd, { isAlive = defaultIsAlive, isSessionAlive = defaultIsSessionAlive } = {}, env = process.env) {
   return updateState(cwd, (s) => {
     for (const job of Object.values(s.jobs)) {
       if (job.status !== "running") continue;
+      if (job.kind === "session" && job.tmuxSession) {
+        if (!isSessionAlive(job.tmuxSession, env)) {
+          Object.assign(job, { status: "completed", phase: "finished", summary: "tmux session ended", finishedAt: nowIso(), updatedAt: nowIso() });
+        }
+        continue;
+      }
       const summary = summarizeStream(readJobLog(job));
       if (summary.status) {
         Object.assign(job, finishFromSummary(job, summary), { updatedAt: nowIso() });
@@ -117,7 +129,11 @@ export function listJobs(cwd, env = process.env) {
   return Object.values(loadState(cwd, env).jobs).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
-export async function killJob(job) {
+export async function killJob(job, env = process.env) {
+  if (job.tmuxSession) {
+    tmux.killSession(job.tmuxSession, { env });
+    return;
+  }
   if (!job.pid) return;
   if (process.platform === "win32") {
     await new Promise((resolve) => {

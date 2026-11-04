@@ -3,13 +3,13 @@
   "owner": { "name": "Yeimaoz" },
   "metadata": {
     "description": "Antigravity CLI (agy) plugin for Claude Code: multi-model review, rescue and task delegation.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "agy",
       "description": "Use Google Antigravity CLI (agy) from Claude Code to review code or delegate tasks to Gemini, Claude or GPT-OSS models.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": { "name": "Yeimaoz" },
       "source": "./plugins/agy"
     }

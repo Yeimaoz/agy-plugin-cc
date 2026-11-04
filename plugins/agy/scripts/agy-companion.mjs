@@ -5,6 +5,7 @@ import { makeContext, UsageError } from "./lib/context.mjs";
 import { runSetup } from "./lib/commands/setup.mjs";
 import { runReview } from "./lib/commands/review.mjs";
 import { runTask } from "./lib/commands/task.mjs";
+import { runSession } from "./lib/commands/session.mjs";
 import { runCancel, runResult, runStatus } from "./lib/commands/jobs.mjs";
 
 const USAGE = `agy-companion <command> [options]
@@ -12,6 +13,11 @@ const USAGE = `agy-companion <command> [options]
   setup [--json] [--enable-review-gate|--disable-review-gate]
   review [--adversarial] [--base <ref>] [--staged] [--model <m>] [--effort <e>] [--focus <text>|--focus-stdin] [--json] [paths...]
   task [--background|--wait] [--write] [--resume|--fresh] [--model <m>] [--effort <e>] [--add-dir <d>]... [--json] (<prompt...> | --prompt-stdin)
+  session start [--model <m>] [--effort <e>] [--write] [--add-dir <d>]... [--json] (<prompt...> | --prompt-stdin)
+  session peek <job-id> [--lines <n>] [--json]
+  session send <job-id> [--key] <text...>
+  session stop <job-id>
+  session list [--json]
   status [job-id] [--wait] [--timeout-ms <ms>] [--all] [--json]
   result <job-id> [--json]
   cancel <job-id> [--json]
@@ -23,6 +29,7 @@ const COMMANDS = {
   setup: runSetup,
   review: runReview,
   task: runTask,
+  session: runSession,
   status: runStatus,
   result: runResult,
   cancel: runCancel,

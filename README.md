@@ -32,6 +32,7 @@ Requirements:
 | `/agy:review [--base ref] [--staged] [--model m] [--effort e] [--focus text] [paths]` | structured code review of the working tree (or a base/staged range) | you |
 | `/agy:adversarial-review ...` | same, but the reviewer tries to break the change | you |
 | `/agy:rescue [--background\|--wait] [--write] [--resume\|--fresh] [--model m] [--effort e] <task>` | hand a diagnosis, fix or long task to agy through the `agy:agy-rescue` subagent | you or Claude |
+| `/agy:drive [--model m] [--effort e] <task>` | run a task in an interactive agy session in tmux (can run shell commands and answer permission prompts) through the `agy:agy-driver` subagent, in the background | you or Claude |
 | `/agy:status [job-id] [--wait] [--all]` | table of running and recent jobs, or one job in detail | you |
 | `/agy:result <job-id>` | full response of a finished job | you |
 | `/agy:cancel <job-id>` | kill a running job | you |
@@ -53,6 +54,10 @@ Pick with `--model <alias|id>` and `--effort <low|medium|high|xhigh|max>`. Unsup
 | `gpt-oss` | `gpt-oss-120b` | (medium only) |
 
 `agy models` lists what your account can use.
+
+## Interactive sessions (tmux)
+
+Headless `task` auto-denies permission prompts, so agy cannot run shell commands. `companion session start|peek|send|stop|list` instead runs `agy -i` inside a tmux session (`agy-<jobId>`); `session peek` captures the screen and classifies it (`permission`, `question`, `idle`, `working`, `gone`), and `session send [--key]` answers. `/agy:drive` hands this loop to the `agy:agy-driver` subagent, which allows read-only inspection and test/script runs inside the workspace, denies destructive, network-egress and out-of-workspace actions, and returns only a summary. Requires `tmux` (`AGY_TMUX_BIN` overrides). No `--mode auto`, no `--dangerously-skip-permissions`. A new folder makes agy show a one-time "Do you trust this folder" prompt, which the driver treats as a permission prompt.
 
 ## Safety model
 

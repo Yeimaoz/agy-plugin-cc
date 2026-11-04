@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "plugins", "agy");
 const USER_ONLY = ["review", "adversarial-review", "status", "result", "cancel", "transfer"];
-const MODEL_OK = ["setup", "rescue"];
+const MODEL_OK = ["setup", "rescue", "drive"];
 
 function frontmatter(file) {
   const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
@@ -23,7 +23,7 @@ for (const name of [...USER_ONLY, ...MODEL_OK]) {
     assert.match(fm, /^description: .+/m);
     if (USER_ONLY.includes(name)) assert.match(fm, /^disable-model-invocation: true$/m);
     else assert.doesNotMatch(fm, /disable-model-invocation: true/);
-    if (name !== "rescue") assert.match(body, /"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/agy-companion\.mjs"/);
+    if (name !== "rescue" && name !== "drive") assert.match(body, /"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/agy-companion\.mjs"/);
     assert.doesNotMatch(body, /dangerously-skip-permissions/);
     assert.ok(body.split("\n").length <= 60, `${name}.md should stay short`);
   });
@@ -37,6 +37,16 @@ test("rescue agent is registered with Bash only and the runtime skill", () => {
   assert.match(fm, /agy-cli-runtime/);
   assert.match(body, /"\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/agy-companion\.mjs" task/);
   assert.match(body, /--prompt-stdin <<'AGY_PROMPT'/, "task text must go through a single-quoted heredoc");
+});
+
+test("driver agent is registered with Bash only, forbids unsafe flags and drives session via heredoc", () => {
+  const { fm, body } = frontmatter(path.join(root, "agents", "agy-driver.md"));
+  assert.match(fm, /^name: agy-driver$/m);
+  assert.match(fm, /^model: sonnet$/m);
+  assert.match(fm, /^tools: Bash$/m);
+  assert.match(fm, /agy-cli-runtime/);
+  assert.match(body, /agy-companion\.mjs" session start --write --prompt-stdin <<'AGY_PROMPT'/);
+  assert.match(body, /Never: pass `--dangerously-skip-permissions` or `--mode auto`/);
 });
 
 test("review commands route focus text through --focus-stdin heredocs, never bare $ARGUMENTS in bash", () => {
